@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blind Tiger — Invoice Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+  :root{
+    --espresso:#2a1d16;
+    --leather:#5c3a26;
+    --tan:#c89b6b;
+    --cream:#f3ead9;
+    --brass:#a9803f;
+    --ink:#231711;
+    --line:#d8c4a3;
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    background:var(--espresso);
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(168,128,63,0.12), transparent 45%),
+      radial-gradient(circle at 100% 100%, rgba(168,128,63,0.08), transparent 50%);
+    font-family:'Iowan Old Style','Palatino Linotype',Georgia,serif;
+    color:var(--ink);
+    min-height:100vh;
+    padding:32px 16px 64px;
+  }
+
+  .wrap{
+    max-width:760px;
+    margin:0 auto;
+  }
+
+  /* ---------- Header ---------- */
+  .brandbar{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    margin-bottom:28px;
+  }
+  .brand-logo{
+    height:64px;
+    max-width:280px;
+    object-fit:contain;
+    filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+  }
+  .brandtext span{
+    display:block;
+    color:var(--tan);
+    font-size:11px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+  }
+
+  /* ---------- Card ---------- */
+  .card{
+    background:var(--cream);
+    border-radius:4px;
+    box-shadow:0 18px 40px rgba(0,0,0,0.35);
+    overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .card-top-edge{
+    height:6px;
+    background:linear-gradient(90deg,var(--brass),var(--leather),var(--brass));
+  }
+  .section{
+    padding:26px 30px;
+    border-bottom:1px dashed var(--line);
+  }
+  .section:last-child{border-bottom:none;}
+
+  .section h2{
+    margin:0 0 16px;
+    font-size:13px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--leather);
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .section h2::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:var(--line);
+  }
+
+  label{
+    display:block;
+    font-size:12px;
+    letter-spacing:0.04em;
+    color:var(--leather);
+    margin-bottom:5px;
+  }
+
+  input[type="text"], input[type="number"], input[type="date"]{
+    width:100%;
+    padding:9px 11px;
+    border:1px solid var(--line);
+    background:#fff;
+    border-radius:3px;
+    font-family:inherit;
+    font-size:14px;
+    color:var(--ink);
+  }
+  input:focus{outline:2px solid var(--brass); outline-offset:1px;}
+
+  .grid2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+  }
+  .field{margin-bottom:14px;}
+
+  /* ---------- Line items ---------- */
+  .item-row{
+    display:grid;
+    grid-template-columns:auto 1fr 70px 100px;
+    align-items:center;
+    gap:10px;
+    padding:9px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .item-row:last-child{border-bottom:none;}
+  .item-row input[type="checkbox"]{
+    width:17px;height:17px;
+    accent-color:var(--leather);
+  }
+  .item-name{font-size:14.5px;}
+  .item-name small{
+    display:block;
+    color:#8a7457;
+    font-size:11.5px;
+  }
+  .item-row input[type="number"]{
+    text-align:center;
+    padding:6px;
+  }
+  .item-price{
+    text-align:right;
+    font-family:'Courier New',monospace;
+    font-size:13.5px;
+    color:var(--leather);
+  }
+
+  .ongkir-row{
+    display:grid;
+    grid-template-columns:1fr 160px;
+    gap:14px;
+    align-items:end;
+  }
+
+  /* ---------- Buttons ---------- */
+  .actions{
+    padding:24px 30px 30px;
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  button{
+    font-family:inherit;
+    font-size:13.5px;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    padding:13px 22px;
+    border-radius:3px;
+    border:none;
+    cursor:pointer;
+    transition:transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  button:active{transform:translateY(1px);}
+  .btn-primary{
+    background:var(--leather);
+    color:var(--cream);
+    flex:1;
+    min-width:160px;
+  }
+  .btn-primary:hover{background:#4a2e1d;}
+  .btn-secondary{
+    background:transparent;
+    color:var(--leather);
+    border:1.5px solid var(--leather);
+  }
+  .btn-secondary:hover{background:rgba(92,58,38,0.08);}
+  .btn-secondary[disabled]{opacity:0.4; cursor:not-allowed;}
+
+  /* ---------- Output (copyable text) ---------- */
+  #outputSection{display:none;}
+  .output-box{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:18px 20px;
+  }
+  #invoiceText{
+    width:100%;
+    min-height:340px;
+    border:none;
+    resize:vertical;
+    font-family:'Courier New',monospace;
+    font-size:13px;
+    line-height:1.55;
+    color:var(--ink);
+    background:transparent;
+  }
+  #invoiceText:focus{outline:none;}
+
+  .copy-feedback{
+    font-size:12.5px;
+    color:var(--brass);
+    margin-top:8px;
+    height:16px;
+    letter-spacing:0.03em;
+  }
+
+  /* ---------- Hidden PDF render target ---------- */
+  #pdfRender{
+    position:absolute;
+    left:-9999px;
+    top:0;
+    width:560px;
+    background:#fff;
+    color:#231711;
+    font-family:'Iowan Old Style','Palatino Linotype',Georgia,serif;
+    padding:40px;
+  }
+  #pdfRender .pr-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    border-bottom:3px solid #5c3a26;
+    padding-bottom:16px;
+    margin-bottom:20px;
+  }
+  #pdfRender .pr-brand-logo{height:46px; max-width:220px; object-fit:contain; display:block;}
+  #pdfRender .pr-brand{font-size:22px; letter-spacing:0.06em; color:#5c3a26; font-weight:bold;}
+  #pdfRender .pr-tagline{font-size:10px; letter-spacing:0.14em; color:#a9803f; text-transform:uppercase; margin-top:4px;}
+  #pdfRender .pr-meta{font-size:11.5px; text-align:right; color:#5c3a26; line-height:1.5;}
+  #pdfRender table{width:100%; border-collapse:collapse; font-size:12.5px; margin-bottom:6px;}
+  #pdfRender th{
+    text-align:left; font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase;
+    color:#a9803f; border-bottom:1px solid #d8c4a3; padding:6px 4px;
+  }
+  #pdfRender td{padding:7px 4px; border-bottom:1px solid #efe6d6; font-family:'Courier New',monospace; font-size:12px;}
+  #pdfRender td.name{font-family:inherit; font-size:13px;}
+  #pdfRender .right{text-align:right;}
+  #pdfRender .center{text-align:center;}
+  #pdfRender .pr-total-row td{font-weight:bold; border-top:2px solid #5c3a26; border-bottom:none; font-size:14px; padding-top:10px;}
+  #pdfRender .pr-foot{margin-top:26px; font-size:11px; color:#8a7457; text-align:center; letter-spacing:0.04em;}
+
+  footer{
+    text-align:center;
+    margin-top:26px;
+    color:var(--tan);
+    font-size:11.5px;
+    letter-spacing:0.06em;
+  }
+
+  @media (max-width:560px){
+    .grid2{grid-template-columns:1fr;}
+    .item-row{grid-template-columns:auto 1fr 56px 78px; gap:6px;}
+    .ongkir-row{grid-template-columns:1fr; }
+    .section{padding:20px 18px;}
+    .actions{padding:20px 18px 26px; flex-direction:column;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="brandbar">
+    <img src="logo.png" alt="Blind Tiger" class="brand-logo" id="webLogo"
+         onerror="this.style.display='none'; document.getElementById('logoFallback').style.display='block';">
+    <h1 id="logoFallback" style="display:none; margin:0; color:var(--cream); font-size:26px; letter-spacing:0.06em; text-transform:uppercase;">🐅 Blind Tiger</h1>
+    <span class="brandtext">Leather Treatment Atelier</span>
+  </div>
+
+  <div class="card">
+    <div class="card-top-edge"></div>
+
+    <div class="section">
+      <h2>Data Pelanggan</h2>
+      <div class="grid2">
+        <div class="field">
+          <label for="custName">Nama Pelanggan</label>
+          <input type="text" id="custName" placeholder="Nama pelanggan">
+        </div>
+        <div class="field">
+          <label for="invDate">Tanggal</label>
+          <input type="date" id="invDate">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label for="invNo">No. Invoice (opsional)</label>
+        <input type="text" id="invNo" placeholder="contoh: BT-0001">
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Product Services</h2>
+      <div id="servicesList"></div>
+    </div>
+
+    <div class="section">
+      <h2>Add On</h2>
+      <div id="addonList"></div>
+    </div>
+
+    <div class="section">
+      <h2>Ongkir</h2>
+      <div class="ongkir-row">
+        <div class="field" style="margin-bottom:0;">
+          <label for="shipDesc">Keterangan (opsional)</label>
+          <input type="text" id="shipDesc" placeholder="contoh: JNE Reguler">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label for="shipCost">Biaya Ongkir (Rp)</label>
+          <input type="number" id="shipCost" placeholder="0" min="0">
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" onclick="generateInvoice()">Buat Invoice</button>
+      <button class="btn-secondary" id="copyBtn" onclick="copyInvoice()" disabled>Copy Teks</button>
+      <button class="btn-secondary" id="pdfBtn" onclick="downloadPDF()" disabled>Download PDF</button>
+    </div>
+
+    <div class="section" id="outputSection">
+      <h2>Invoice</h2>
+      <div class="output-box">
+        <textarea id="invoiceText" readonly></textarea>
+        <div class="copy-feedback" id="copyFeedback"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>Blind Tiger · Leather Treatment</footer>
+</div>
+
+<!-- Hidden render target used only for generating the PDF -->
+<div id="pdfRender"></div>
+
+<script>
+const SERVICES = [
+  { id: 's1', emoji: '🥃', name: "The Alley Buff", price: 79000 },
+  { id: 's2', emoji: '🎩', name: "The Atelier's Standard", price: 89000 },
+  { id: 's3', emoji: '🐅', name: "The Tiger's Reserve Tier 1", price: 139000 },
+];
+
+const ADDONS = [
+  { id: 'a1', emoji: '', name: "Saddle Soap", price: 20000 },
+  { id: 'a2', emoji: '', name: "Dust Bag", price: 1000 },
+];
+
+function rupiah(n){
+  return 'Rp' + Number(n).toLocaleString('id-ID');
+}
+
+function buildItemRow(item){
+  return `
+    <div class="item-row" data-id="${item.id}">
+      <input type="checkbox" id="chk_${item.id}" onchange="toggleQty('${item.id}')">
+      <label for="chk_${item.id}" class="item-name" style="margin:0; cursor:pointer;">
+        ${item.emoji ? item.emoji + ' ' : ''}${item.name}
+      </label>
+      <input type="number" id="qty_${item.id}" value="1" min="1" disabled
+             oninput="if(this.value<1)this.value=1;">
+      <div class="item-price">${rupiah(item.price)}</div>
+    </div>
+  `;
+}
+
+function renderLists(){
+  document.getElementById('servicesList').innerHTML = SERVICES.map(buildItemRow).join('');
+  document.getElementById('addonList').innerHTML = ADDONS.map(buildItemRow).join('');
+}
+renderLists();
+
+function toggleQty(id){
+  const chk = document.getElementById('chk_' + id);
+  const qty = document.getElementById('qty_' + id);
+  qty.disabled = !chk.checked;
+  if(chk.checked && (!qty.value || qty.value < 1)) qty.value = 1;
+}
+
+// default date = today
+document.getElementById('invDate').valueAsDate = new Date();
+
+function collectSelected(list){
+  const out = [];
+  list.forEach(item => {
+    const chk = document.getElementById('chk_' + item.id);
+    if(chk.checked){
+      const qty = parseInt(document.getElementById('qty_' + item.id).value) || 1;
+      out.push({ ...item, qty, subtotal: item.price * qty });
+    }
+  });
+  return out;
+}
+
+let lastInvoiceData = null;
+
+function generateInvoice(){
+  const custName = document.getElementById('custName').value.trim() || '-';
+  const invDateRaw = document.getElementById('invDate').value;
+  const invNo = document.getElementById('invNo').value.trim();
+  const shipDesc = document.getElementById('shipDesc').value.trim();
+  const shipCost = parseInt(document.getElementById('shipCost').value) || 0;
+
+  const services = collectSelected(SERVICES);
+  const addons = collectSelected(ADDONS);
+  const allItems = [...services, ...addons];
+
+  if(allItems.length === 0 && shipCost === 0){
+    alert('Pilih minimal satu produk/layanan, atau isi ongkir.');
+    return;
+  }
+
+  const dateObj = invDateRaw ? new Date(invDateRaw) : new Date();
+  const dateStr = dateObj.toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
+
+  const itemsTotal = allItems.reduce((sum, i) => sum + i.subtotal, 0);
+  const grandTotal = itemsTotal + shipCost;
+
+  lastInvoiceData = { custName, dateStr, invNo, services, addons, shipDesc, shipCost, grandTotal };
+
+  // ----- Build copyable plain text -----
+  const lineW = 38;
+  const pad = (label, value) => {
+    const l = label.length, v = value.length;
+    const gap = Math.max(1, lineW - l - v);
+    return label + ' '.repeat(gap) + value;
+  };
+  const divider = '-'.repeat(lineW);
+
+  let txt = '';
+  txt += 'BLIND TIGER\n';
+  txt += 'Leather Treatment Atelier\n';
+  txt += divider + '\n';
+  if(invNo) txt += 'No. Invoice : ' + invNo + '\n';
+  txt += 'Tanggal     : ' + dateStr + '\n';
+  txt += 'Pelanggan   : ' + custName + '\n';
+  txt += divider + '\n';
+
+  if(services.length){
+    txt += 'PRODUCT SERVICES\n';
+    services.forEach(i => {
+      txt += `${i.emoji} ${i.name}\n`;
+      txt += pad(`  ${i.qty} x ${rupiah(i.price)}`, rupiah(i.subtotal)) + '\n';
+    });
+    txt += divider + '\n';
+  }
+
+  if(addons.length){
+    txt += 'ADD ON\n';
+    addons.forEach(i => {
+      txt += `${i.name}\n`;
+      txt += pad(`  ${i.qty} x ${rupiah(i.price)}`, rupiah(i.subtotal)) + '\n';
+    });
+    txt += divider + '\n';
+  }
+
+  txt += pad('Ongkir' + (shipDesc ? ' (' + shipDesc + ')' : ''), rupiah(shipCost)) + '\n';
+  txt += divider + '\n';
+  txt += pad('TOTAL', rupiah(grandTotal)) + '\n';
+  txt += divider + '\n';
+  txt += 'Terima kasih telah merawat kulit\nAnda bersama Blind Tiger.';
+
+  document.getElementById('invoiceText').value = txt;
+  document.getElementById('outputSection').style.display = 'block';
+  document.getElementById('copyBtn').disabled = false;
+  document.getElementById('pdfBtn').disabled = false;
+  document.getElementById('copyFeedback').textContent = '';
+  document.getElementById('outputSection').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function copyInvoice(){
+  const ta = document.getElementById('invoiceText');
+  navigator.clipboard.writeText(ta.value).then(() => {
+    document.getElementById('copyFeedback').textContent = 'Tersalin ke clipboard ✓';
+    setTimeout(() => document.getElementById('copyFeedback').textContent = '', 2500);
+  }).catch(() => {
+    ta.select();
+    document.execCommand('copy');
+    document.getElementById('copyFeedback').textContent = 'Tersalin ke clipboard ✓';
+    setTimeout(() => document.getElementById('copyFeedback').textContent = '', 2500);
+  });
+}
+
+function buildPdfRows(items){
+  return items.map(i => `
+    <tr>
+      <td class="name">${i.emoji ? i.emoji + ' ' : ''}${i.name}</td>
+      <td class="center">${i.qty}</td>
+      <td class="right">${rupiah(i.price)}</td>
+      <td class="right">${rupiah(i.subtotal)}</td>
+    </tr>
+  `).join('');
+}
+
+function downloadPDF(){
+  if(!lastInvoiceData) return;
+  const d = lastInvoiceData;
+
+  let rowsHtml = '';
+  if(d.services.length){
+    rowsHtml += `<tr><th colspan="4" style="padding-top:14px;">Product Services</th></tr>`;
+    rowsHtml += buildPdfRows(d.services);
+  }
+  if(d.addons.length){
+    rowsHtml += `<tr><th colspan="4" style="padding-top:14px;">Add On</th></tr>`;
+    rowsHtml += buildPdfRows(d.addons);
+  }
+  rowsHtml += `
+    <tr>
+      <td class="name">Ongkir${d.shipDesc ? ' (' + d.shipDesc + ')' : ''}</td>
+      <td class="center">—</td>
+      <td class="right">—</td>
+      <td class="right">${rupiah(d.shipCost)}</td>
+    </tr>
+  `;
+
+  const render = document.getElementById('pdfRender');
+  render.innerHTML = `
+    <div class="pr-head">
+      <div>
+        <img src="logo.png" class="pr-brand-logo" id="pdfLogoImg"
+             onerror="this.outerHTML='<div class=&quot;pr-brand&quot;>🐅 BLIND TIGER</div>';">
+        <div class="pr-tagline">Leather Treatment Atelier</div>
+      </div>
+      <div class="pr-meta">
+        ${d.invNo ? 'No. Invoice: ' + d.invNo + '<br>' : ''}
+        Tanggal: ${d.dateStr}<br>
+        Pelanggan: ${d.custName}
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th class="center">Qty</th>
+          <th class="right">Harga</th>
+          <th class="right">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+        <tr class="pr-total-row">
+          <td colspan="3">TOTAL</td>
+          <td class="right">${rupiah(d.grandTotal)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="pr-foot">Terima kasih telah merawat kulit Anda bersama Blind Tiger.</div>
+  `;
+
+  const filename = 'Invoice-BlindTiger' + (d.invNo ? '-' + d.invNo : '') + '.pdf';
+
+  const pdfOptions = {
+    margin: 0,
+    filename: filename,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, backgroundColor: '#ffffff' },
+    jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' }
+  };
+
+  // Tunggu logo selesai loading (atau gagal loading) sebelum generate PDF,
+  // supaya logo tidak hilang di hasil cetak.
+  const logoImg = document.getElementById('pdfLogoImg');
+  const startPdfGen = () => html2pdf().set(pdfOptions).from(render).save();
+
+  if(logoImg && !logoImg.complete){
+    logoImg.onload = startPdfGen;
+    logoImg.onerror = () => setTimeout(startPdfGen, 50);
+  } else {
+    startPdfGen();
+  }
+}
+</script>
+
+</body>
+</html>
