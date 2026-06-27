@@ -143,6 +143,11 @@
   .item-row input[type="number"]{
     text-align:center;
     padding:6px;
+    transition:outline 0.15s ease;
+  }
+  .item-row input[type="number"]::placeholder{
+    color:#b89a78;
+    opacity:0.8;
   }
   .item-price{
     text-align:right;
@@ -353,9 +358,9 @@
 
 <script>
 const SERVICES = [
-  { id: 's1', emoji: '🥃', name: "The Alley Buff", price: 79000 },
-  { id: 's2', emoji: '🎩', name: "The Atelier's Standard", price: 89000 },
-  { id: 's3', emoji: '🐅', name: "The Tiger's Reserve Tier 1", price: 139000 },
+  { id: 's1', emoji: '🥃', name: "The Alley Buff", price: 89000 },
+  { id: 's2', emoji: '🎩', name: "The Atelier's Standard", price: 129000 },
+  { id: 's3', emoji: '🐅', name: "The Tiger's Reserve Tier 1", price: 179000 },
 ];
 
 const ADDONS = [
@@ -374,8 +379,8 @@ function buildItemRow(item){
       <label for="chk_${item.id}" class="item-name" style="margin:0; cursor:pointer;">
         ${item.emoji ? item.emoji + ' ' : ''}${item.name}
       </label>
-      <input type="number" id="qty_${item.id}" value="1" min="1" disabled
-             oninput="if(this.value<1)this.value=1;">
+      <input type="number" id="qty_${item.id}" placeholder="Qty" min="1" disabled
+             oninput="if(this.value!=='' && this.value<1)this.value=1;">
       <div class="item-price">${rupiah(item.price)}</div>
     </div>
   `;
@@ -391,7 +396,12 @@ function toggleQty(id){
   const chk = document.getElementById('chk_' + id);
   const qty = document.getElementById('qty_' + id);
   qty.disabled = !chk.checked;
-  if(chk.checked && (!qty.value || qty.value < 1)) qty.value = 1;
+  if(chk.checked){
+    qty.value = '';
+    qty.focus();
+  } else {
+    qty.value = '';
+  }
 }
 
 // default date = today
@@ -399,13 +409,23 @@ document.getElementById('invDate').valueAsDate = new Date();
 
 function collectSelected(list){
   const out = [];
+  let hasError = false;
   list.forEach(item => {
     const chk = document.getElementById('chk_' + item.id);
     if(chk.checked){
-      const qty = parseInt(document.getElementById('qty_' + item.id).value) || 1;
+      const qtyField = document.getElementById('qty_' + item.id);
+      const qtyVal = qtyField.value.trim();
+      if(qtyVal === '' || parseInt(qtyVal) < 1){
+        qtyField.style.outline = '2px solid #b5043c';
+        hasError = true;
+        return;
+      }
+      qtyField.style.outline = '';
+      const qty = parseInt(qtyVal);
       out.push({ ...item, qty, subtotal: item.price * qty });
     }
   });
+  if(hasError) out.error = true;
   return out;
 }
 
@@ -420,6 +440,12 @@ function generateInvoice(){
 
   const services = collectSelected(SERVICES);
   const addons = collectSelected(ADDONS);
+
+  if(services.error || addons.error){
+    alert('Ada produk/add-on yang dicentang tapi qty-nya belum diisi. Isi dulu ya.');
+    return;
+  }
+
   const allItems = [...services, ...addons];
 
   if(allItems.length === 0 && shipCost === 0){
